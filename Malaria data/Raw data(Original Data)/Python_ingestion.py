@@ -43,13 +43,13 @@ print(f"Current Execution Directory: {os.getcwd()}")
 
 # %%
 # Target the specific files matching your file structural naming rules
-search_path = os.path.join(base_path, 'Raw data', 'Jamir data *.csv')
+search_path = os.path.join(base_path, 'Raw data', 'Jamir Data *.csv')
 all_files = glob.glob(search_path)
 print(f"Detected {len(all_files)} target spreadsheets for ingestion pipeline processing.")
 
 # Step 1: Define SQL Server connection parameters
 server = "DESKTOP-U507UFU\\MSSQLSERVER01"
-database = "MalariaLanding_DB"
+database = "MLanding1"
 
 conn_str = (
     "Driver={ODBC Driver 17 for SQL Server};"
