@@ -5,7 +5,11 @@ USE MLanding1;
 CREATE TABLE DimAgeGroup(
 	AgeKey INT IDENTITY(1,1) PRIMARY KEY,
 	AgeGroup NVARCHAR(50) NOT NULL UNIQUE
+	ValidFrom DATETIME NOT NULL,
+	ValidTo DATETIME NOT NULL,
+	IsCurrent  BIT DEFAULT 1
 );
+
 
 
 ----Region Table
