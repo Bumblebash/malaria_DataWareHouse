@@ -41,3 +41,38 @@ CREATE TABLE Stg_Population_Permanent(
 );
 
 
+USE MLanding1;
+GO
+
+-- Prevent log spamming during the generation loop
+SET NOCOUNT ON;
+
+DECLARE @CurrentDate DATE = '2015-01-01';
+DECLARE @TargetEndDate DATE = '2035-12-31';
+
+-- Populate the table systematically day-by-day
+WHILE @CurrentDate <= @TargetEndDate
+BEGIN
+    INSERT INTO dbo.DimDate (DateKey, FullDate, Year, Quarter, Month, MonthName, YearMonth)
+    VALUES (
+        -- Convert Date format directly into a compact integer surrogate key (e.g., 20240101)
+        CAST(CONVERT(VARCHAR(8), @CurrentDate, 112) AS INT),
+        @CurrentDate,
+        YEAR(@CurrentDate),
+        DATEPART(QUARTER, @CurrentDate),
+        MONTH(@CurrentDate),
+        DATENAME(MONTH, @CurrentDate),
+        LEFT(CONVERT(VARCHAR(8), @CurrentDate, 112), 6)
+    );
+
+    SET @CurrentDate = DATEADD(DAY, 1, @CurrentDate);
+END;
+GO
+
+-- Seed the system default historical date fallback record to catch missing date keys safely
+INSERT INTO dbo.DimDate (DateKey, FullDate, Year, Quarter, Month, MonthName, YearMonth)
+VALUES (19000101, '1900-01-01', 1900, 1, 1, 'UNKNOWN', '190001');
+GO
+
+
+SELECT * FROM DimDate;

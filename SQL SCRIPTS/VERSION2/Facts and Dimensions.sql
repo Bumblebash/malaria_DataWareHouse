@@ -6,12 +6,11 @@ CREATE TABLE DimAgeGroup(
 	AgeKey INT IDENTITY(1,1) PRIMARY KEY,
 	AgeGroup NVARCHAR(50) NOT NULL UNIQUE,
 	ValidFrom DATETIME NOT NULL,
-	ValidTo DATETIME NOT NULL,
+	ValidTo DATETIME  NULL,
 	IsCurrent  BIT DEFAULT 1
 );
 
-
-
+ALTER TABLE DimAgeGroup ALTER COLUMN ValidTo DATETIME NULL;
 ----Region Table
 CREATE TABLE DimRegion(
 		RegionKey INT IDENTITY(1,1) PRIMARY KEY,
@@ -20,6 +19,7 @@ CREATE TABLE DimRegion(
 		ValidTo DATETIME NULL,
 		IsCurrent BIT DEFAULT 1
 );
+
 
 
 
@@ -61,8 +61,7 @@ CREATE TABLE DimGender(
 CREATE TABLE Fact_Malaria(
 	   FactID BIGINT IDENTITY(1,1) PRIMARY KEY,
 	   BatchID UNIQUEIDENTIFIER NOT NULL, ---Core tracking lineage Token
-	   RegionKey INT NOT NULL,
-	   DistrictKey INT NOT NULL,
+	   FacilityKey INT NOT NULL,
 	   DateKey INT NOT NULL,
 	   GenderKey INT NOT NULL,
 	   AgeKey INT NOT NULL,
@@ -71,12 +70,15 @@ CREATE TABLE Fact_Malaria(
 	   PregnantCases INT NOT NULL,
 	   TotalCases INT NOT NULL,
 	   LoadDate DATETIME DEFAULT GETDATE(),
-	CONSTRAINT FK_Fact_Date FOREIGN KEY (DateKey) REFERENCES DimDate(DateKey),
-	CONSTRAINT FK_Fact_Region FOREIGN KEY(RegionKey) REFERENCES DimRegion(RegionKey),
-	CONSTRAINT FK_Fact_District FOREIGN KEY(DistrictKey) REFERENCES DimDistrict(DistrictKey),
+	CONSTRAINT FK_Fact_Facility FOREIGN KEY(FacilityKey) REFERENCES DimFacility(FacilityKey),
 	CONSTRAINT FK_Fact_Gender FOREIGN KEY(GenderKey) REFERENCES DimGender(GenderKey),
 	CONSTRAINT FK_Fact_AgeGroup FOREIGN KEY(AgeKey) REFERENCES DimAgeGroup(AgeKey)
 );
+
+ALTER TABLE Fact_Malaria  ADD CONSTRAINT FK_District FOREIGN KEY(DistrictKey) REFERENCES DimDistrict(DistrictKey);
+
+SELECT * FROM Fact_Malaria;
+ 
 
 
 -----Fact Population
@@ -94,8 +96,42 @@ CREATE TABLE Fact_Population(
 		);
 
 
+--DimFacility
+CREATE TABLE DimFacility(
+		FacilityKey INT IDENTITY(1,1) PRIMARY KEY,
+		Source_FacilityID NVARCHAR(100) NOT NULL,
+		DistrictKey INT NOT NULL,
+		ValidFrom DATETIME NOT NULL DEFAULT GETDATE(),
+		ValidTo DATETIME NULL,
+		IsCurrent BIT NOT NULL DEFAULT 1,
+		CONSTRAINT FK_DimDistrict FOREIGN KEY(DistrictKey) REFERENCES DimDistrict(DistrictKey)
+);
+GO
 
 
 
+GO
+-- 4 Seeding Unknown Mmebber defaults to handle missing or dirty staging lookups
+SET IDENTITY_INSERT DimRegion ON;
+INSERT INTO DimRegion (RegionKey, Region, ValidFrom, IsCurrent) 
+VALUES (-1, 'UNKNOWN REGION', '1900-01-01', 1);
+SET IDENTITY_INSERT DimRegion OFF;
+
+SET IDENTITY_INSERT DimDistrict ON;
+INSERT INTO DimDistrict (DistrictKey, DistrictName, RegionKey, IsCity, ValidFrom, IsCurrent) 
+VALUES (-1, 'UNKNOWN DISTRICT', -1, 0, '1900-01-01', 1);
+SET IDENTITY_INSERT DimDistrict OFF;
+
+SET IDENTITY_INSERT DimAgeGroup ON;
+INSERT INTO DimAgeGroup (AgeKey, AgeGroup, ValidFrom, IsCurrent) 
+VALUES (-1, 'UNKNOWN AGE GROUP', '1900-01-01', 1);
+SET IDENTITY_INSERT DimAgeGroup OFF;
+
+
+SET IDENTITY_INSERT DimFacility ON;
+INSERT INTO DimFacility (FacilityKey, Source_FacilityID, DistrictKey, ValidFrom, IsCurrent)
+VALUES (-1 , 'UNKNOWN_ID', -1, '1900-01-01', 1);
+SET IDENTITY_INSERT DimFacility  OFF;
+GO
 
 
