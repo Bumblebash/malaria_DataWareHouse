@@ -76,3 +76,26 @@ GO
 
 
 SELECT * FROM DimDate;
+
+
+
+----Stg_Malaria_Qaurantine
+CREATE TABLE Stg_Malaria_Quarantine(
+	BatchID  UNIQUEIDENTIFIER NOT NULL,
+	FacilityID NVARCHAR(MaX),
+	Region VARCHAR(100),
+	District VARCHAR(100),
+	Year INT,
+	Month INT,
+	AgeGroup NVARCHAR(20),
+	Gender VARCHAR(10),
+	ConfirmedCases INT,
+	TreatedCases INT,
+	PregnancyCases INT,
+	TotalCasesRecorded INT,
+	QuarantineReason NVARCHAR(MAX)
+)
+
+
+ALTER TABLE Stg_Malaria_Quarantine DROP COLUMN DataQualityFlag;
+ALTER TABLE  Stg_Malaria_Quarantine ADD  	QuarantineReason NVARCHAR(MAX);

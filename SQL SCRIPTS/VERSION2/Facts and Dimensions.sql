@@ -72,12 +72,13 @@ CREATE TABLE Fact_Malaria(
 	   LoadDate DATETIME DEFAULT GETDATE(),
 	CONSTRAINT FK_Fact_Facility FOREIGN KEY(FacilityKey) REFERENCES DimFacility(FacilityKey),
 	CONSTRAINT FK_Fact_Gender FOREIGN KEY(GenderKey) REFERENCES DimGender(GenderKey),
-	CONSTRAINT FK_Fact_AgeGroup FOREIGN KEY(AgeKey) REFERENCES DimAgeGroup(AgeKey)
+	CONSTRAINT FK_Fact_AgeGroup FOREIGN KEY(AgeKey) REFERENCES DimAgeGroup(AgeKey),
+	CONSTRAINT FK_Date_Key FOREIGN KEY(DateKey) REFERENCES DimDate(DateKey)
 );
 
-ALTER TABLE Fact_Malaria  ADD CONSTRAINT FK_District FOREIGN KEY(DistrictKey) REFERENCES DimDistrict(DistrictKey);
 
-SELECT * FROM Fact_Malaria;
+
+
  
 
 

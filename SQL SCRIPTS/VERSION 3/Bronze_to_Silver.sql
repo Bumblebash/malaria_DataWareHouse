@@ -1,0 +1,117 @@
+USE MLanding1;
+
+
+
+USE MLanding1;
+GO
+
+CREATE PROCEDURE dbo.SP_ETL_Stage1_Bronze_To_Silver
+    @SourceTableName NVARCHAR(100),
+    @ReportingYear INT,
+    @BatchID UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @DynamicSQL NVARCHAR(MAX) = '';
+    DECLARE @ColumnList NVARCHAR(MAX) = '';
+
+    -- Gather matching headers from your incoming Python matrix files
+    SELECT @ColumnList = STRING_AGG(CAST(QUOTENAME(COLUMN_NAME) AS NVARCHAR(MAX)), ',')
+    FROM MLanding1.INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = @SourceTableName
+      AND (COLUMN_NAME LIKE '105-EP01c%' OR COLUMN_NAME LIKE '105-EP01d%' 
+           OR COLUMN_NAME LIKE '105-MC04%' OR COLUMN_NAME LIKE '105-EP01b%');
+
+    -- Execute unpivot and process your data quality rules
+    SET @DynamicSQL = '
+        WITH RawUnpivoted AS (
+            SELECT
+                organisationunitid AS FacilityID,
+                UPPER(LTRIM(RTRIM(orgunitlevel2))) AS Region,
+                UPPER(LTRIM(RTRIM(organisationunitname))) AS District,
+                ColName,
+                TRY_CAST(Value AS INT) AS MetricValue
+            FROM [MLanding1].dbo.' + QUOTENAME(@SourceTableName) + '
+            UNPIVOT (Value FOR ColName IN (' + @ColumnList + ')) u
+        ),
+        AggregatedStaging AS (
+            SELECT 
+                FacilityID, Region, District,
+                ' + CAST(@ReportingYear AS VARCHAR(4)) + ' AS Year,
+                CASE
+                    WHEN UPPER(ColName) LIKE ''%JANUARY%'' THEN 1
+                    WHEN UPPER(ColName) LIKE ''%FEBRUARY%'' THEN 2
+                    WHEN UPPER(ColName) LIKE ''%MARCH%'' THEN 3
+                    WHEN UPPER(ColName) LIKE ''%APRIL%'' THEN 4
+                    WHEN UPPER(ColName) LIKE ''%MAY%'' THEN 5
+                    WHEN UPPER(ColName) LIKE ''%JUNE%'' THEN 6
+                    WHEN UPPER(ColName) LIKE ''%JULY%'' THEN 7
+                    WHEN UPPER(ColName) LIKE ''%AUGUST%'' THEN 8
+                    WHEN UPPER(ColName) LIKE ''%SEPTEMBER%'' THEN 9
+                    WHEN UPPER(ColName) LIKE ''%OCTOBER%'' THEN 10
+                    WHEN UPPER(ColName) LIKE ''%NOVEMBER%'' THEN 11
+                    WHEN UPPER(ColName) LIKE ''%DECEMBER%'' THEN 12
+                END AS Month,
+                CASE 
+                    WHEN ColName LIKE ''105-EP01c%'' THEN ''ConfirmedCases''
+                    WHEN ColName LIKE ''105-EP01d%'' THEN ''TreatedCases''
+                    WHEN ColName LIKE ''105-MC04%'' THEN ''PregnancyCases''
+                    WHEN ColName LIKE ''105-EP01b%'' THEN ''TotalCasesRecorded''
+                END AS CaseType,
+                CASE
+                    WHEN UPPER(ColName) LIKE ''%0-28DYS%'' THEN ''0-28Dys''
+                    WHEN UPPER(ColName) LIKE ''%29DYS-4YRS%'' THEN ''29Days-4yrs''
+                    WHEN UPPER(ColName) LIKE ''%5-9YRS%'' THEN ''5-9yrs''
+                    WHEN UPPER(ColName) LIKE ''%10-19YRS%'' THEN ''10-19yrs''
+                    WHEN UPPER(ColName) LIKE ''%20+YRS%'' THEN ''20+''
+                END AS AgeGroup,
+                CASE 
+                    WHEN UPPER(ColName) LIKE ''%FEMALE%'' THEN ''Female''
+                    WHEN UPPER(ColName) LIKE ''%MALE%'' THEN ''Male''
+                END AS Gender
+            FROM RawUnpivoted
+        ),
+        PivotPayload AS (
+            SELECT 
+                FacilityID, Region, District, Year, Month, AgeGroup, Gender,
+                SUM(CASE WHEN CaseType = ''ConfirmedCases'' THEN MetricValue END) AS ConfirmedCases,
+                SUM(CASE WHEN CaseType = ''TreatedCases'' THEN MetricValue END) AS TreatedCases,
+                SUM(CASE WHEN CaseType = ''PregnancyCases'' THEN MetricValue END) AS PregnancyCases,
+                SUM(CASE WHEN CaseType = ''TotalCasesRecorded'' THEN MetricValue END) AS TotalCasesRecorded
+            FROM AggregatedStaging
+            GROUP BY FacilityID, Region, District, Year, Month, AgeGroup, Gender
+        ),
+        EvaluatedPayload AS (
+            SELECT 
+                FacilityID, Region, District, Year, Month, AgeGroup, Gender,
+                ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded,
+                CASE 
+                     WHEN Gender = ''Male'' AND (PregnancyCases IS NOT NULL OR TotalCasesRecorded IS NOT NULL) THEN ''NotApplicable''
+                     WHEN ConfirmedCases IS NULL AND TreatedCases IS NULL AND PregnancyCases IS NULL AND TotalCasesRecorded IS NULL THEN ''NotReported''
+                     WHEN ISNULL(ConfirmedCases,0) = 0 AND ISNULL(TreatedCases,0) = 0 AND ISNULL(PregnancyCases,0) = 0 AND ISNULL(TotalCasesRecorded,0) = 0 THEN ''Reported_Zero_Cases''
+                     ELSE ''VALID_ENTRY''
+                END AS DataQualityFlag
+            FROM PivotPayload
+        )
+        -- CRITICAL ROUTING GATE: Route clean data to permanent staging and incomplete rows to quarantine
+        SELECT * INTO #BufferETL FROM EvaluatedPayload;
+
+        INSERT INTO [MLanding1].dbo.Stg_Malaria_Permanent (BatchID, FacilityID, Region, District, Year, Month, AgeGroup, Gender, ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded, DataQualityFlag)
+        SELECT ''' + CAST(@BatchID AS VARCHAR(50)) + ''', FacilityID, Region, District, Year, Month, AgeGroup, Gender, ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded, DataQualityFlag
+        FROM #BufferETL
+        WHERE DataQualityFlag IN (''VALID_ENTRY'', ''Reported_Zero_Cases'')
+          AND District IS NOT NULL AND FacilityID IS NOT NULL;
+
+        INSERT INTO [MLanding1].dbo.Stg_Malaria_Quarantine (BatchID, FacilityID, Region, District, Year, Month, AgeGroup, Gender, ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded, QuarantineReason)
+        SELECT ''' + CAST(@BatchID AS VARCHAR(50)) + ''', FacilityID, Region, District, Year, Month, AgeGroup, Gender, ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded, 
+               CASE 
+                    WHEN District IS NULL OR FacilityID IS NULL THEN ''CRITICAL FAILURE: Missing Facility/District Identifiers''
+                    ELSE ''DATA QUALITY ANOMALY: '' + DataQualityFlag
+               END
+        FROM #BufferETL
+        WHERE DataQualityFlag IN (''NotApplicable'', ''NotReported'')
+           OR District IS NULL OR FacilityID IS NULL;';
+
+    EXEC sp_executesql @DynamicSQL;
+END;
+GO

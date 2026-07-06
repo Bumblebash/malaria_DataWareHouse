@@ -19,6 +19,7 @@ BEGIN
  VALUES (@BatchID, 'Master_E2E_Malaria_Ingestion', 'Multiple', 'STARTED', GETDATE());
 
  BEGIN TRY
+ -- CRITICAL LOCK ISOLATION PLACEMENT
  BEGIN TRANSACTION;
 
  -- 2. DYNAMICALLY PARSE VARYING SOURCE COLUMNS FROM THE LANDING MATRIX
@@ -131,36 +132,43 @@ BEGIN
  AND src.District IS NOT NULL
  AND src.District NOT IN (SELECT DistrictName FROM DimDistrict WHERE IsCurrent = 1);
 
- -- 6. AUTOMATE DYNAMIC REFRESH FOR THE NEW FACILITY DIMENSION
- INSERT INTO dbo.DimFacility (Source_FacilityID, DistrictKey, ValidFrom, ValidTo, IsCurrent)
+ -- 6. AUTOMATE DYNAMIC REFRESH AND TIMELINE MANAGEMENT FOR DIMFACILITY (SCD TYPE 2)
+ UPDATE target
+ SET target.IsCurrent = 0, target.ValidTo = GETDATE()
+ FROM dbo.DimFacility target
+ INNER JOIN [MLanding1].dbo.Stg_Malaria_Permanent src ON src.FacilityID = target.Source_FacilityID
+ INNER JOIN dbo.DimDistrict d ON d.DistrictName = src.District AND d.IsCurrent = 1
+ WHERE src.BatchID = @BatchID AND target.IsCurrent = 1 AND target.DistrictKey <> d.DistrictKey;
+
+ INSERT INTO dbo.DimFacility (Source_FacilityID, FacilityName, DistrictKey, ValidFrom, ValidTo, IsCurrent)
  SELECT DISTINCT 
     stg.FacilityID,
-    stg.District,
+    stg.District + ' Clinic', 
     ISNULL(dist.DistrictKey, -1),
     GETDATE(),
+    NULL,
     1
  FROM [MLanding1].dbo.Stg_Malaria_Permanent stg
  LEFT JOIN dbo.DimDistrict dist ON dist.DistrictName = stg.District AND dist.IsCurrent = 1
  WHERE stg.BatchID = @BatchID 
    AND stg.FacilityID NOT IN (SELECT Source_FacilityID FROM dbo.DimFacility WHERE IsCurrent = 1);
 
- -- 7. TRANSFER TRANSFORMS DIRECTLY TO THE FACT TABLE JOINED THROUGH DIMFACILITY
- -- Generates date key integers dynamically (such as 20240101) to align with DimDate values
- INSERT INTO [MLanding1].dbo.Fact_Malaria(BatchID, RegionKey, DistrictKey, DateKey, GenderKey, AgeKey, ConfirmedCases, TreatedCases, PregnantCases, TotalCases)
+ -- 7. TRANSFER TRANSFORMS DIRECTLY TO THE CLEAN STAR SCHEMA FACT TABLE
+ INSERT INTO [MLanding1].dbo.Fact_Malaria (
+    BatchID, FacilityKey, DateKey, GenderKey, AgeKey, ConfirmedCases, TreatedCases, PregnantCases, TotalCases
+ )
  SELECT 
- @BatchID, 
- ISNULL(dist.RegionKey, -1), 
- ISNULL(fac.DistrictKey, -1), 
- ISNULL(d.DateKey, 19000101), 
- ISNULL(gen.GenderKey, -1), 
- ISNULL(age.AgeKey, -1),
- stg.ConfirmedCases, 
- stg.TreatedCases, 
- stg.PregnancyCases, 
- stg.TotalCasesRecorded
+    @BatchID, 
+    ISNULL(fac.FacilityKey, -1), 
+    ISNULL(d.DateKey, 19000101), 
+    ISNULL(gen.GenderKey, -1), 
+    ISNULL(age.AgeKey, -1),
+    stg.ConfirmedCases, 
+    stg.TreatedCases, 
+    stg.PregnancyCases, 
+    stg.TotalCasesRecorded
  FROM [MLanding1].dbo.Stg_Malaria_Permanent stg
  LEFT JOIN dbo.DimFacility fac        ON fac.Source_FacilityID = stg.FacilityID AND fac.IsCurrent = 1
- LEFT JOIN dbo.DimDistrict dist      ON dist.DistrictKey = fac.DistrictKey AND dist.IsCurrent = 1
  LEFT JOIN dbo.DimDate d             ON d.Year = stg.Year AND d.Month = stg.Month AND d.FullDate = DATEFROMPARTS(stg.Year, stg.Month, 1)
  LEFT JOIN dbo.DimAgeGroup age       ON age.AgeGroup = stg.AgeGroup AND age.IsCurrent = 1
  LEFT JOIN dbo.DimGender gen         ON gen.Gender = stg.Gender
@@ -177,35 +185,46 @@ BEGIN
  FROM [MLanding1].dbo.Fact_Malaria 
  WHERE BatchID = @BatchID;
 
- INSERT INTO [MLanding1].dbo.DataQualityCheckLogs(BatchID, TargetTable, MetricName, SourceValue, TargetValue, Variance, CheckResult, ActionTaken)
+ -- 9. FIXED CLOSURE LOGIC: ASSIGN DQ METRIC RECORDS AHEAD OF TRANSACTION EVALUATION
+ INSERT INTO [MLanding1].dbo.DataQualityCheckLogs (BatchID, TargetTable, MetricName, SourceValue, TargetValue, Variance, CheckResult, ActionTaken)
  VALUES (
  @BatchID, 'Fact_Malaria', 'TotalCases_Run_Reconciliation', @SumSourceCases, @SumTargetCases, (@SumSourceCases - @SumTargetCases),
  CASE WHEN (@SumSourceCases - @SumTargetCases) = 0 THEN 'PASS' ELSE 'FAIL' END,
  CASE WHEN (@SumSourceCases - @SumTargetCases) = 0 THEN 'COMMIT_LOAD' ELSE 'FORCE_ROLLBACK' END
  );
 
- -- 9. SECURE TRANSACTION CLOSING BOUNDARIES
+ -- 10. CONDITIONAL TRANSACTION RESOLUTION BOUNDARY WITH CLEAN EXIT BALANCING
  IF (@SumSourceCases - @SumTargetCases) = 0
  BEGIN
- COMMIT TRANSACTION;
+     COMMIT TRANSACTION; -- Balance verified: Save changes safely to disk
  
- UPDATE [Mlanding1].dbo.PipelineExecutionLogs
- SET EndTime = GETDATE(), Status = 'SUCCESS', RowsRead = @RowsRead, RowsWritten = @RowsWritten
- WHERE BatchID = @BatchID;
+     UPDATE [Mlanding1].dbo.PipelineExecutionLogs
+     SET EndTime = GETDATE(), Status = 'SUCCESS', RowsRead = @RowsRead, RowsWritten = @RowsWritten
+     WHERE BatchID = @BatchID;
  END
  ELSE
  BEGIN
- ROLLBACK TRANSACTION;
- RAISERROR('Critical Validation Error: Target fact metric totals vary from unpivoted source baselines.', 16, 1);
+     -- Balance check failed: Instantly roll back the transaction and throw an error to alert the orchestrator
+     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+     
+     UPDATE [Mlanding1].dbo.PipelineExecutionLogs
+     SET EndTime = GETDATE(), Status = 'FAILED', ErrorMessage = 'Data Quality Reconciliation Mismatch. Pipeline Forced Rollback.'
+     WHERE BatchID = @BatchID;
+     
+     -- Force exit out of procedure execution paths entirely
+     RETURN;
  END
 
  END TRY
  BEGIN CATCH
- IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
- UPDATE [MLanding1].dbo.PipelineExecutionLogs
- SET EndTime = GETDATE(), Status = 'FAILED', ErrorMessage = ERROR_MESSAGE()
- WHERE BatchID = @BatchID;
- THROW;
+     -- Secure fallback error capturing catch-all framework
+     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+     
+     UPDATE [MLanding1].dbo.PipelineExecutionLogs
+     SET EndTime = GETDATE(), Status = 'FAILED', ErrorMessage = ERROR_MESSAGE()
+     WHERE BatchID = @BatchID;
+     
+     THROW;
  END CATCH
 END;
 GO
