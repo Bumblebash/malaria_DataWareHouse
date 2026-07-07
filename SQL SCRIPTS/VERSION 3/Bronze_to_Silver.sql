@@ -2,10 +2,10 @@ USE MLanding1;
 
 
 
-USE MLanding1;
+
 GO
 
-CREATE PROCEDURE dbo.SP_ETL_Stage1_Bronze_To_Silver
+ALTER PROCEDURE dbo.SP_ETL_Stage1_Bronze_To_Silver
     @SourceTableName NVARCHAR(100),
     @ReportingYear INT,
     @BatchID UNIQUEIDENTIFIER
@@ -13,10 +13,10 @@ AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @DynamicSQL NVARCHAR(MAX) = '';
-    DECLARE @ColumnList NVARCHAR(MAX) = '';
+    DECLARE @cross_apply_values NVARCHAR(MAX) = '';
 
     -- Gather matching headers from your incoming Python matrix files
-    SELECT @ColumnList = STRING_AGG(CAST(QUOTENAME(COLUMN_NAME) AS NVARCHAR(MAX)), ',')
+    SELECT @cross_apply_values = STRING_AGG(CAST(QUOTENAME(COLUMN_NAME) AS NVARCHAR(MAX)), ',')
     FROM MLanding1.INFORMATION_SCHEMA.COLUMNS
     WHERE TABLE_NAME = @SourceTableName
       AND (COLUMN_NAME LIKE '105-EP01c%' OR COLUMN_NAME LIKE '105-EP01d%' 
@@ -27,12 +27,15 @@ BEGIN
         WITH RawUnpivoted AS (
             SELECT
                 organisationunitid AS FacilityID,
-                UPPER(LTRIM(RTRIM(orgunitlevel2))) AS Region,
-                UPPER(LTRIM(RTRIM(organisationunitname))) AS District,
+                (LTRIM(RTRIM(orgunitlevel2))) AS Region,
+                (LTRIM(RTRIM(organisationunitname))) AS District,
                 ColName,
-                TRY_CAST(Value AS INT) AS MetricValue
+                TRY_CAST(Value AS INT) AS Value
             FROM [MLanding1].dbo.' + QUOTENAME(@SourceTableName) + '
-            UNPIVOT (Value FOR ColName IN (' + @ColumnList + ')) u
+            CROSSAPPLY (
+            VALUES
+            '+ @cross_apply_values+'
+            ) AS unpiv(ColName, [Value])
         ),
         AggregatedStaging AS (
             SELECT 
@@ -68,49 +71,31 @@ BEGIN
                 CASE 
                     WHEN UPPER(ColName) LIKE ''%FEMALE%'' THEN ''Female''
                     WHEN UPPER(ColName) LIKE ''%MALE%'' THEN ''Male''
-                END AS Gender
+                END AS Gender,
+
+                Value
             FROM RawUnpivoted
         ),
         PivotPayload AS (
             SELECT 
                 FacilityID, Region, District, Year, Month, AgeGroup, Gender,
-                SUM(CASE WHEN CaseType = ''ConfirmedCases'' THEN MetricValue END) AS ConfirmedCases,
-                SUM(CASE WHEN CaseType = ''TreatedCases'' THEN MetricValue END) AS TreatedCases,
-                SUM(CASE WHEN CaseType = ''PregnancyCases'' THEN MetricValue END) AS PregnancyCases,
-                SUM(CASE WHEN CaseType = ''TotalCasesRecorded'' THEN MetricValue END) AS TotalCasesRecorded
+                SUM(CASE WHEN CaseType = ''ConfirmedCases'' THEN Value END) AS ConfirmedCases,
+                SUM(CASE WHEN CaseType = ''TreatedCases'' THEN Value END) AS TreatedCases,
+                SUM(CASE WHEN CaseType = ''PregnancyCases'' THEN Value END) AS PregnancyCases,
+                SUM(CASE WHEN CaseType = ''TotalCasesRecorded'' THEN Value END) AS TotalCasesRecorded
             FROM AggregatedStaging
             GROUP BY FacilityID, Region, District, Year, Month, AgeGroup, Gender
-        ),
-        EvaluatedPayload AS (
-            SELECT 
-                FacilityID, Region, District, Year, Month, AgeGroup, Gender,
-                ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded,
-                CASE 
-                     WHEN Gender = ''Male'' AND (PregnancyCases IS NOT NULL OR TotalCasesRecorded IS NOT NULL) THEN ''NotApplicable''
-                     WHEN ConfirmedCases IS NULL AND TreatedCases IS NULL AND PregnancyCases IS NULL AND TotalCasesRecorded IS NULL THEN ''NotReported''
-                     WHEN ISNULL(ConfirmedCases,0) = 0 AND ISNULL(TreatedCases,0) = 0 AND ISNULL(PregnancyCases,0) = 0 AND ISNULL(TotalCasesRecorded,0) = 0 THEN ''Reported_Zero_Cases''
-                     ELSE ''VALID_ENTRY''
-                END AS DataQualityFlag
-            FROM PivotPayload
         )
-        -- CRITICAL ROUTING GATE: Route clean data to permanent staging and incomplete rows to quarantine
-        SELECT * INTO #BufferETL FROM EvaluatedPayload;
-
         INSERT INTO [MLanding1].dbo.Stg_Malaria_Permanent (BatchID, FacilityID, Region, District, Year, Month, AgeGroup, Gender, ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded, DataQualityFlag)
-        SELECT ''' + CAST(@BatchID AS VARCHAR(50)) + ''', FacilityID, Region, District, Year, Month, AgeGroup, Gender, ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded, DataQualityFlag
-        FROM #BufferETL
-        WHERE DataQualityFlag IN (''VALID_ENTRY'', ''Reported_Zero_Cases'')
-          AND District IS NOT NULL AND FacilityID IS NOT NULL;
-
-        INSERT INTO [MLanding1].dbo.Stg_Malaria_Quarantine (BatchID, FacilityID, Region, District, Year, Month, AgeGroup, Gender, ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded, QuarantineReason)
-        SELECT ''' + CAST(@BatchID AS VARCHAR(50)) + ''', FacilityID, Region, District, Year, Month, AgeGroup, Gender, ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded, 
-               CASE 
-                    WHEN District IS NULL OR FacilityID IS NULL THEN ''CRITICAL FAILURE: Missing Facility/District Identifiers''
-                    ELSE ''DATA QUALITY ANOMALY: '' + DataQualityFlag
-               END
-        FROM #BufferETL
-        WHERE DataQualityFlag IN (''NotApplicable'', ''NotReported'')
-           OR District IS NULL OR FacilityID IS NULL;';
+        SELECT ''' + CAST(@BatchID AS VARCHAR(50)) + ''', FacilityID, Region, District, Year, Month, AgeGroup, Gender, ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded,
+        -- Data Quality FLag evaluated safely at te final grainlevel
+         CASE 
+            WHEN Gender = ''Male'' AND (PregnancyCases IS NOT NULL OR TotalCasesRecorded IS NOT NULL) THEN ''NotApplicable''
+            WHEN ConfirmedCases IS NULL AND TreatedCases IS NULL AND PregnancyCases IS NULL AND TotalCasesRecorded IS NULL THEN ''NotReported''
+            WHEN ISNULL(ConfirmedCases,0) = 0 AND ISNULL(TreatedCases,0) = 0 AND ISNULL(PregnancyCases,0) = 0 AND ISNULL(TotalCasesRecorded,0) = 0 THEN ''Reported_Zero_Cases''
+            ELSE ''VALID_ENTRY''
+       END AS DataQualityFlag
+        FROM PivotPayload;'
 
     EXEC sp_executesql @DynamicSQL;
 END;
