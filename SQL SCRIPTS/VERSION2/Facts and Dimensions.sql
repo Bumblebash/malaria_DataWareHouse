@@ -11,7 +11,7 @@ CREATE TABLE DimAgeGroup(
 );
 
 
-
+SELECT * FROM Stg_Malaria_Permanent;
 
 
 	---Date Table
