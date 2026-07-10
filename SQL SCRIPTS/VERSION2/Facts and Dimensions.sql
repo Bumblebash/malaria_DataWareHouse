@@ -94,5 +94,22 @@ SET IDENTITY_INSERT DimGeography OFF;
 SELECT * FROM DimGeography
 
 
+-- Explicitly seed missing calendar records for 2022 through 2024
+DECLARE @StartDate DATE = '2020-01-01';
+DECLARE @EndDate DATE = '2025-12-31';
 
+WHILE @StartDate <= @EndDate
+BEGIN
+    DECLARE @DK INT = YEAR(@StartDate) * 10000 + MONTH(@StartDate) * 100 + DAY(@StartDate);
+    
+    IF NOT EXISTS (SELECT 1 FROM dbo.DimDate WHERE DateKey = @DK)
+    BEGIN
+        INSERT INTO dbo.DimDate (DateKey, FullDate, Year, Quarter, Month, MonthName, YearMonth)
+        VALUES (
+            @DK, @StartDate, YEAR(@StartDate), DATEPART(QUARTER, @StartDate), 
+            MONTH(@StartDate), DATENAME(MONTH, @StartDate), CONCAT(YEAR(@StartDate), '_', RIGHT('0' + CAST(MONTH(@StartDate) AS VARCHAR), 2))
+        );
+    END
+    SET @StartDate = DATEADD(DAY, 1, @StartDate);
+END;
 

@@ -111,8 +111,7 @@ GO
 
 
 
--- Step 1: Run Stage 1 manually to see the printed string output
-EXEC dbo.SP_ETL_Stage1_Bronze_To_Silver 
-    @SourceTableName = 'Malaria2024', -- Your current raw landing table
-    @ReportingYear = 2024, 
-    @BatchID = 'C49D5E57-761A-4B67-8A20-E5E358ABA389';
+
+
+
+
