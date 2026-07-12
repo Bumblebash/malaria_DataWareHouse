@@ -72,3 +72,4 @@ WHERE m.ConfirmedCases IS NOT NULL AND m.TreatedCases IS NOT NULL AND m.Pregnanc
 
 
 
+WHERE m.ConfirmedCases IS NOT NULL OR m.TreatedCases IS NOT NULL OR m.PregnancyCases IS NOT NULL OR m.TotalCasesRecorded IS NOT NULL

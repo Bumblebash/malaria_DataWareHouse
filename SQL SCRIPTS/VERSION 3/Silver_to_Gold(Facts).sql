@@ -7,6 +7,12 @@ ALTER PROCEDURE dbo.SP_ETL_Stage3_Silver_To_Gold_Fact
 AS
 BEGIN
     SET NOCOUNT ON;
+    DELETE FROM dbo.Fact_Malaria
+        WHERE DateKey IN (
+            SELECT DISTINCT (Year * 10000 + Month * 100 + 1 )
+            FROM Stg_Malaria_Permanent
+            WHERE BatchID = @BatchID
+        )
     
     DECLARE @SumSourceCases BIGINT = 0, 
             @SumTargetCases BIGINT = 0;
@@ -32,13 +38,13 @@ BEGIN
         SELECT
             @BatchID, 
             geo.GeographyKey, -- Correct conformed surrogate key lookup
-            d.DateKey, 
-            gen.GenderKey, 
+            d.DateKey,
+            gen.GenderKey,
             age.AgeKey,
-            ISNULL(stg.ConfirmedCases, 0), 
-            ISNULL(stg.TreatedCases, 0), 
-            ISNULL(stg.PregnancyCases, 0),
-            ISNULL(stg.TotalCasesRecorded, 0),
+            stg.ConfirmedCases, 
+            stg.TreatedCases, 
+            stg.PregnancyCases,
+            stg.TotalCasesRecorded,
             GETDATE()
         FROM dbo.Stg_Malaria_Permanent stg
         -- Unified lookup against your flat dimension layer
@@ -52,7 +58,11 @@ BEGIN
         INNER JOIN dbo.DimGender gen 
             ON gen.Gender = stg.Gender
         WHERE stg.BatchID = @BatchID 
-          AND stg.DataQualityFlag IN ('VALID_ENTRY', 'Reported_Zero_Cases');
+          AND
+          (stg.ConfirmedCases IS NOT NULL
+    AND stg.TreatedCases IS NOT NULL 
+    AND stg.PregnancyCases IS NOT NULL 
+    AND stg.TotalCasesRecorded IS NOT NULL);
           
         SET @RowsWritten = @@ROWCOUNT;
 
@@ -63,9 +73,12 @@ BEGIN
         
         -- Source sum MUST match target filter conditions to prevent false rollbacks
         SELECT @SumSourceCases = ISNULL(SUM(TotalCasesRecorded), 0) 
-        FROM dbo.Stg_Malaria_Permanent 
+        FROM dbo.Stg_Malaria_Permanent stg
         WHERE BatchID = @BatchID
-          AND DataQualityFlag IN ('VALID_ENTRY', 'Reported_Zero_Cases');
+          AND (stg.ConfirmedCases IS NOT NULL 
+    AND  stg.TreatedCases IS NOT NULL 
+    AND  stg.PregnancyCases IS NOT NULL 
+    AND stg.TotalCasesRecorded IS NOT NULL);
 
         SELECT @SumTargetCases = ISNULL(SUM(TotalCases), 0) 
         FROM dbo.Fact_Malaria 

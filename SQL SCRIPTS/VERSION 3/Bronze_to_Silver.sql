@@ -11,6 +11,9 @@ ALTER PROCEDURE dbo.SP_ETL_Stage1_Bronze_To_Silver
 AS
 BEGIN
  SET NOCOUNT ON;
+
+ DELETE FROM Stg_Malaria_Permanent 
+ WHERE Year = @ReportingYear;
  
  DECLARE @DynamicSQL NVARCHAR(MAX) = '';
  DECLARE @cross_apply_values NVARCHAR(MAX) = '';
@@ -89,6 +92,7 @@ BEGIN
      FROM AggregatedStaging
      GROUP BY FacilityID, Region, District, Year, Month, AgeGroup, Gender
  )
+ 
  INSERT INTO [MLanding1].dbo.Stg_Malaria_Permanent (
      BatchID, FacilityID, Region, District, Year, Month, AgeGroup, Gender, 
      ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded, DataQualityFlag
@@ -97,7 +101,7 @@ BEGIN
      ''' + CAST(@BatchID AS VARCHAR(50)) + ''', FacilityID, Region, District, Year, Month, 
      AgeGroup, Gender, ConfirmedCases, TreatedCases, PregnancyCases, TotalCasesRecorded,
      CASE 
-         WHEN Gender = ''Male'' AND (PregnancyCases IS NOT NULL OR TotalCasesRecorded IS NOT NULL) THEN ''NotApplicable''
+         WHEN Gender = ''Male'' AND (PregnancyCases IS NOT NULL OR TotalCasesRecorded IS NOT NULL) THEN ''VALID_ENTRY''
          WHEN ConfirmedCases IS NULL AND TreatedCases IS NULL AND PregnancyCases IS NULL AND TotalCasesRecorded IS NULL THEN ''NotReported''
          WHEN ISNULL(ConfirmedCases,0) = 0 AND ISNULL(TreatedCases,0) = 0 AND ISNULL(PregnancyCases,0) = 0 AND ISNULL(TotalCasesRecorded,0) = 0 THEN ''Reported_Zero_Cases''
          ELSE ''VALID_ENTRY''
@@ -107,10 +111,6 @@ BEGIN
  EXEC sp_executesql @DynamicSQL;
 END;
 GO
-
-
-
-
 
 
 
