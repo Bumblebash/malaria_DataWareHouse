@@ -13,7 +13,6 @@ INSERT INTO DimGender(Gender)
 SELECT  DISTINCT Gender FROM
 [MalariaLanding_DB].dbo.Stg_Malaria_Permanent;
 
-SELECT * FROM DimGender;
 
 
 
