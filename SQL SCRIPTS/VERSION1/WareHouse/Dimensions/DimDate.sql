@@ -1,6 +1,7 @@
+
 USE MalariaWareHouse_DB;
 
-------Creating  Date Dimesion(DateDim)
+---Creating Date Dimesion Table
 CREATE TABLE DimDate(
 	DateKey INT PRIMARY KEY,
 	FullDate DATE NOT NULL,
@@ -11,15 +12,6 @@ CREATE TABLE DimDate(
 	YearMonth VARCHAR(8)
 );
 GO 
-
----Confirming Datatypes of Columns
-EXEC sp_help DimDate
-
-
-SELECT * FROM DimDate;
-
-
-/**Ingest Data into the Date Dimesnsion**/
 
 ------INGEST DateDimension data into Dimdate
 INSERT INTO DimDate
@@ -32,5 +24,5 @@ SELECT DISTINCT
        DATENAME(MONTH, DATEFROMPARTS(Year, Month,1)),
        CONCAT(Year, '_', RIGHT('0' + CAST(Month AS VARCHAR), 2))
 FROM [MalariaLanding_DB].dbo.Stg_Malaria_Permanent;
-
+GO
 SELECT * FROM DimDate;
