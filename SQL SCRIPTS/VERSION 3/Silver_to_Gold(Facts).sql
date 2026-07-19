@@ -47,7 +47,7 @@ BEGIN
             stg.TotalCasesRecorded,
             GETDATE()
         FROM dbo.Stg_Malaria_Permanent stg
-        -- Unified lookup against your flat dimension layer
+        --JOINS on Dimesions 
         INNER JOIN dbo.DimGeography geo 
             ON geo.Source_FacilityID = stg.FacilityID 
            AND geo.IsCurrent = 1

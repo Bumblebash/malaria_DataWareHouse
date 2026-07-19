@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: bronze_landing
+    database: MLanding1
+    schema: dbo
+    tables:
+     - name: Malaria2024

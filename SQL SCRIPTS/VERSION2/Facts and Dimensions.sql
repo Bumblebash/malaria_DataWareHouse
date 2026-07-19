@@ -24,7 +24,7 @@ SELECT * FROM Stg_Malaria_Permanent;
 		MonthName NVARCHAR(20) NOT NULL,
 		YearMonth VARCHAR(8) NOT NULL
 	);
-
+	SELECT * FROM DimDate;
 
 ----Gender Table
 
@@ -67,6 +67,8 @@ CREATE TABLE Fact_Malaria(
 	CONSTRAINT FK_Date_Key FOREIGN KEY(DateKey) REFERENCES DimDate(DateKey)
 );
 
+
+
 EXEC sp_help Fact_Malaria;
 -----Fact Population
 CREATE TABLE Fact_Population(
@@ -80,7 +82,8 @@ CREATE TABLE Fact_Population(
 
 		);
 
-
+ALTER TABLE Fact_Population DROP CONSTRAINT FK_Popn_Date;
+ALTER TABLE Fact_Population ADD CONSTRAINT FK_Popn_Date FOREIGN KEY(DateKey) REFERENCES DimDate(DateKey)
 	
 
 
@@ -112,4 +115,7 @@ BEGIN
     END
     SET @StartDate = DATEADD(DAY, 1, @StartDate);
 END;
+
+
+SELECT * FROM DimDate;
 
