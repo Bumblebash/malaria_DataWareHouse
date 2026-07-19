@@ -7,12 +7,9 @@ ALTER PROCEDURE dbo.SP_ETL_Stage3_Silver_To_Gold_Fact
 AS
 BEGIN
     SET NOCOUNT ON;
-    DELETE FROM dbo.Fact_Malaria
-        WHERE DateKey IN (
-            SELECT DISTINCT (Year * 10000 + Month * 100 + 1 )
-            FROM Stg_Malaria_Permanent
-            WHERE BatchID = @BatchID
-        )
+    DELETE FROM dbo.Fact_Malaria WHERE 
+        BatchID = @BatchID
+     
     
     DECLARE @SumSourceCases BIGINT = 0, 
             @SumTargetCases BIGINT = 0;
@@ -36,33 +33,32 @@ BEGIN
             LoadDate
         )
         SELECT
-            @BatchID, 
-            geo.GeographyKey, -- Correct conformed surrogate key lookup
-            d.DateKey,
-            gen.GenderKey,
-            age.AgeKey,
-            stg.ConfirmedCases, 
-            stg.TreatedCases, 
-            stg.PregnancyCases,
-            stg.TotalCasesRecorded,
-            GETDATE()
-        FROM dbo.Stg_Malaria_Permanent stg
-        --JOINS on Dimesions 
-        INNER JOIN dbo.DimGeography geo 
-            ON geo.Source_FacilityID = stg.FacilityID 
-           AND geo.IsCurrent = 1
-        INNER JOIN dbo.DimDate d 
-            ON d.DateKey = (stg.Year * 10000 + stg.Month * 100 + 1)
-        INNER JOIN dbo.DimAgeGroup age 
-            ON age.AgeGroup = stg.AgeGroup
-        INNER JOIN dbo.DimGender gen 
-            ON gen.Gender = stg.Gender
-        WHERE stg.BatchID = @BatchID 
-          AND
-          (stg.ConfirmedCases IS NOT NULL
-    AND stg.TreatedCases IS NOT NULL 
-    AND stg.PregnancyCases IS NOT NULL 
-    AND stg.TotalCasesRecorded IS NOT NULL);
+           	@BatchID,
+			geo.GeographyKey,
+			d.DateKey,
+			gen.GenderKey,
+			age.AgeKey,
+			ISNULL(stg.ConfirmedCases,0),
+			ISNULL(stg.TreatedCases,0),
+			ISNULL(stg.PregnancyCases, 0),
+			ISNULL(stg.TotalCasesRecorded,0),
+			GETDATE()
+		FROM dbo.Stg_Malaria_Permanent stg
+		  JOIN dbo.DimGeography geo
+				ON geo.Source_FacilityID = stg.FacilityID
+				AND geo.IsCurrent = 1
+		 JOIN dbo.DimDate d
+				ON d.DateKey = (stg.Year * 10000 + stg.Month * 100 + 1 )
+	      JOIN dbo.DimAgeGroup age
+				ON age.AgeGroup = stg.AgeGroup
+		  JOIN dbo.DimGender gen
+				ON gen.Gender = stg.Gender
+				WHERE 
+                stg.BatchID = @BatchID AND 
+			      stg.Region <> stg.District
+				  AND(
+				 stg.ConfirmedCases IS NOT NULL OR stg.TreatedCases IS NOT NULL OR stg.PregnancyCases IS NOT NULL OR stg.TotalCasesRecorded IS NOT NULL)
+				
           
         SET @RowsWritten = @@ROWCOUNT;
 
@@ -72,15 +68,22 @@ BEGIN
         -- =========================================================================
         
         -- Source sum MUST match target filter conditions to prevent false rollbacks
-        SELECT @SumSourceCases = ISNULL(SUM(TotalCasesRecorded), 0) 
+        SELECT @SumSourceCases = ISNULL(SUM(stg.TotalCasesRecorded), 0) 
         FROM dbo.Stg_Malaria_Permanent stg
+        JOIN dbo.DimGeography geo
+				ON geo.Source_FacilityID = stg.FacilityID
+				AND geo.IsCurrent = 1
+		 JOIN dbo.DimDate d
+				ON d.DateKey = (stg.Year * 10000 + stg.Month * 100 + 1 )
+	      JOIN dbo.DimAgeGroup age
+				ON age.AgeGroup = stg.AgeGroup
+		  JOIN dbo.DimGender gen
+				ON gen.Gender = stg.Gender
         WHERE BatchID = @BatchID
-          AND (stg.ConfirmedCases IS NOT NULL 
-    AND  stg.TreatedCases IS NOT NULL 
-    AND  stg.PregnancyCases IS NOT NULL 
-    AND stg.TotalCasesRecorded IS NOT NULL);
-
-        SELECT @SumTargetCases = ISNULL(SUM(TotalCases), 0) 
+        AND stg.Region <> stg.District
+           AND(
+				stg.ConfirmedCases IS NOT NULL OR stg.TreatedCases IS NOT NULL OR stg.PregnancyCases IS NOT NULL OR stg.TotalCasesRecorded IS NOT NULL)
+         SELECT @SumTargetCases = ISNULL(SUM(TotalCases), 0) 
         FROM dbo.Fact_Malaria 
         WHERE BatchID = @BatchID;
 
