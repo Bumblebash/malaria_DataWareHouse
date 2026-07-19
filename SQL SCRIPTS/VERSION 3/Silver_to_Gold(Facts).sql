@@ -38,16 +38,16 @@ BEGIN
 			d.DateKey,
 			gen.GenderKey,
 			age.AgeKey,
-			ISNULL(stg.ConfirmedCases,0),
-			ISNULL(stg.TreatedCases,0),
-			ISNULL(stg.PregnancyCases, 0),
-			ISNULL(stg.TotalCasesRecorded,0),
+			stg.ConfirmedCases,
+			stg.TreatedCases,
+			stg.PregnancyCases,
+			stg.TotalCasesRecorded,
 			GETDATE()
 		FROM dbo.Stg_Malaria_Permanent stg
 		  JOIN dbo.DimGeography geo
 				ON geo.Source_FacilityID = stg.FacilityID
 				AND geo.IsCurrent = 1
-		 JOIN dbo.DimDate d
+		  JOIN dbo.DimDate d
 				ON d.DateKey = (stg.Year * 10000 + stg.Month * 100 + 1 )
 	      JOIN dbo.DimAgeGroup age
 				ON age.AgeGroup = stg.AgeGroup
@@ -56,10 +56,6 @@ BEGIN
 				WHERE 
                 stg.BatchID = @BatchID AND 
 			      stg.Region <> stg.District
-				  AND(
-				 stg.ConfirmedCases IS NOT NULL OR stg.TreatedCases IS NOT NULL OR stg.PregnancyCases IS NOT NULL OR stg.TotalCasesRecorded IS NOT NULL)
-				
-          
         SET @RowsWritten = @@ROWCOUNT;
 
 
@@ -81,8 +77,6 @@ BEGIN
 				ON gen.Gender = stg.Gender
         WHERE BatchID = @BatchID
         AND stg.Region <> stg.District
-           AND(
-				stg.ConfirmedCases IS NOT NULL OR stg.TreatedCases IS NOT NULL OR stg.PregnancyCases IS NOT NULL OR stg.TotalCasesRecorded IS NOT NULL)
          SELECT @SumTargetCases = ISNULL(SUM(TotalCases), 0) 
         FROM dbo.Fact_Malaria 
         WHERE BatchID = @BatchID;

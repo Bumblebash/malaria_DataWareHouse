@@ -56,16 +56,17 @@ CREATE TABLE Fact_Malaria(
 	   DateKey INT NOT NULL,
 	   GenderKey INT NOT NULL,
 	   AgeKey INT NOT NULL,
-	   ConfirmedCases INT NOT NULL,
-	   TreatedCases INT NOT NULL,
-	   PregnantCases INT NOT NULL,
-	   TotalCases INT NOT NULL,
+	   ConfirmedCases INT NULL,
+	   TreatedCases INT  NULL,
+	   PregnantCases INT NULL,
+	   TotalCases INT  NULL,
 	   LoadDate DATETIME DEFAULT GETDATE(),
 	CONSTRAINT FK_Fact_Gender FOREIGN KEY(GenderKey) REFERENCES DimGender(GenderKey),
 	CONSTRAINT FK_Geography_Key FOREIGN KEY(GeographyKey) REFERENCES DimGeography(GeographyKey),
 	CONSTRAINT FK_Fact_AgeGroup FOREIGN KEY(AgeKey) REFERENCES DimAgeGroup(AgeKey),
 	CONSTRAINT FK_Date_Key FOREIGN KEY(DateKey) REFERENCES DimDate(DateKey)
 );
+
 
 
 
