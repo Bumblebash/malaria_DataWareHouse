@@ -6,7 +6,7 @@ CREATE TABLE DimAgeGroup(
 );
 GO
 /**Insert DimAgeGroup Data**/
-INSERT INTO DimAgeGroup (AgeGroup, MinAge, MaxAge)
+INSERT INTO DimAgeGroup (AgeGroup)
     SELECT DISTINCT AgeGroup
 FROM [MalariaLanding_DB].dbo.Stg_Malaria_Permanent
 WHERE AgeGroup IS NOT NULL;
