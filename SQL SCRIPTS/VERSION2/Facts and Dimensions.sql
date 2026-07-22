@@ -69,7 +69,6 @@ CREATE TABLE Fact_Malaria(
 
 
 
-
 EXEC sp_help Fact_Malaria;
 -----Fact Population
 CREATE TABLE Fact_Population(

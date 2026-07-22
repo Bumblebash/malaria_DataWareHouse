@@ -28,3 +28,8 @@ WHERE s.District LIKE '%District%'
 
 
 
+
+
+	  SELECT * FROM DimDistrict;
+
+
