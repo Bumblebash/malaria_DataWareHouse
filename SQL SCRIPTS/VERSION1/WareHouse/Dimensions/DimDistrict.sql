@@ -27,10 +27,14 @@ WHERE s.District LIKE '%District%'
 	  AND s.Region <> s.District;
 
 
+	  USE MLanding1
+	  SELECT * FROM DimGeography;
 
+	  SELECT * FROM DimDistrict
+	  ALTER TABLE DimDistrict DROP COLUMN IsCurrent;
+	  USE MalariaWareHouse_DB
 
-
-
+	  EXEC sp_help Fact_Population;
 
 
 
