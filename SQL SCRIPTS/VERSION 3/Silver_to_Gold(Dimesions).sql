@@ -42,8 +42,8 @@ BEGIN
         -- =========================================================================
         -- 3. SYNC AGE GROUP DIMENSION (SCD Type 0 - Clean Insert Only)
         -- =========================================================================
-        INSERT INTO dbo.DimAgeGroup (AgeGroup, ValidFrom, IsCurrent)
-        SELECT DISTINCT AgeGroup, GETDATE(), 1
+        INSERT INTO dbo.DimAgeGroup (AgeGroup)
+        SELECT DISTINCT AgeGroup
         FROM dbo.Stg_Malaria_Permanent
         WHERE BatchID = @BatchID 
           AND AgeGroup IS NOT NULL

@@ -9,8 +9,12 @@ CREATE TABLE DimAgeGroup(
 	ValidTo DATETIME  NULL,
 	IsCurrent  BIT DEFAULT 1
 );
+ ALTER TABLE DimAgeGroup DROP COLUMN ValidFrom;
+ ALTER TABLE DimAgeGroup DROP COLUMN ValidTo;
+ ALTER TABLE DimAgeGroup DROP COLUMN IsCurrent;
+ ALTER TABLE DimAgeGroup ALTER COLUMN AgeGroup NVARCHAR(50) NULL;
 
-
+ SELECT * FROM DimAgeGroup;
 SELECT * FROM Stg_Malaria_Permanent;
 
 
