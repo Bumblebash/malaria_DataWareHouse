@@ -34,7 +34,7 @@ import urllib
 
 # %%
 # Fix directory mappings to clear out mixed formatting slashes
-base_path = r'D:\Data Analyst\MALARIA ANALYTICS\FULL PROJECT\Malaria data\Raw data(Original Data)'
+base_path = r"D:\Data Analyst\MALARIA ANALYTICS\FULL PROJECT\Malaria data\Raw data(Original Data)\Raw data\MalariaRaw Files"
 os.chdir(base_path)
 print(f"Current Execution Directory: {os.getcwd()}")
 
@@ -43,10 +43,9 @@ print(f"Current Execution Directory: {os.getcwd()}")
 
 # %%
 # Target the specific files matching your file structural naming rules
-search_path = os.path.join(base_path, 'Raw data', 'Jamir Data *.csv')
+search_path = os.path.join(base_path,'MalariaData *.csv')
 all_files = glob.glob(search_path)
 print(f"Detected {len(all_files)} target spreadsheets for ingestion pipeline processing.")
-
 # Step 1: Define SQL Server connection parameters
 server = "DESKTOP-U507UFU\\MSSQLSERVER01"
 database = "MLanding1"
