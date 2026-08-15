@@ -21,6 +21,8 @@ CREATE TABLE Stg_Malaria_Permanent(
 );
 
 
+ALTER TABLE Stg_Malaria_Permanent ALTER COLUMN AgeGroup VARCHAR(50) NULL;
+ALTER TABLE Stg_Malaria
 
 
 ---Staging Table Population

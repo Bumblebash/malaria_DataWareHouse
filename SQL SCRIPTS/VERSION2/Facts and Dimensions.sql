@@ -1,21 +1,11 @@
 USE MLanding1;
 
-
+--- FACT AND Dimensions
 ---Age group Table
 CREATE TABLE DimAgeGroup(
 	AgeKey INT IDENTITY(1,1) PRIMARY KEY,
-	AgeGroup NVARCHAR(50) NOT NULL UNIQUE,
-	ValidFrom DATETIME NOT NULL,
-	ValidTo DATETIME  NULL,
-	IsCurrent  BIT DEFAULT 1
+	AgeGroup NVARCHAR(50) NVARCHAR(50) NULL
 );
- ALTER TABLE DimAgeGroup DROP COLUMN ValidFrom;
- ALTER TABLE DimAgeGroup DROP COLUMN ValidTo;
- ALTER TABLE DimAgeGroup DROP COLUMN IsCurrent;
- ALTER TABLE DimAgeGroup ALTER COLUMN AgeGroup NVARCHAR(50) NULL;
-
- SELECT * FROM DimAgeGroup;
-SELECT * FROM Stg_Malaria_Permanent;
 
 
 	---Date Table
@@ -39,7 +29,7 @@ CREATE TABLE DimGender(
 );
 
 
----Geography Key
+---Geography Dimension
 CREATE TABLE DimGeography(
    GeographyKey INT IDENTITY(1,1) PRIMARY KEY,
    Source_FacilityID NVARCHAR(100)  NOT NULL,
@@ -53,10 +43,10 @@ CREATE TABLE DimGeography(
 
 
 
----- Configuring Fact Tables to capture the Execution Lineage Token (BatchID)
+---- Configuring the  Fact Table to capture the Execution Lineage Token (BatchID)
 CREATE TABLE Fact_Malaria(
 	   FactID BIGINT IDENTITY(1,1) PRIMARY KEY,
-	   BatchID UNIQUEIDENTIFIER NOT NULL, ---Core tracking lineage Token
+	   BatchID UNIQUEIDENTIFIER NOT NULL, --- Token for tracking lineageS
 	   DateKey INT NOT NULL,
 	   GenderKey INT NOT NULL,
 	   AgeKey INT NOT NULL,
@@ -92,7 +82,7 @@ ALTER TABLE Fact_Population ADD CONSTRAINT FK_Popn_Date FOREIGN KEY(DateKey) REF
 
 
 GO
--- 4 Seeding Unknown Mmebber defaults to handle missing or dirty staging lookups
+-- 4 Seeding Unknown Member defaults to handle missing or dirty staging lookups
 SET IDENTITY_INSERT DimGeography ON;
 INSERT INTO DimGeography (GeographyKey, Source_FacilityID,  DistrictName, RegionName, IsCity, ValidFrom, IsCurrent)
 VALUES (-1, 'UNKNOWN_ID', 'UNKNOWN DISTRICT', 'UNKNOWN REGION', 0, '1900-01-01', 1);
@@ -122,4 +112,3 @@ END;
 
 
 SELECT * FROM DimDate;
-
