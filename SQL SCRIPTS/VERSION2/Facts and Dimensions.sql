@@ -1,6 +1,6 @@
 USE MLanding1;
 
---- FACT AND Dimensions
+--- FACTS AND Dimensions
 ---Age group Table
 CREATE TABLE DimAgeGroup(
 	AgeKey INT IDENTITY(1,1) PRIMARY KEY,
@@ -46,7 +46,7 @@ CREATE TABLE DimGeography(
 ---- Configuring the  Fact Table to capture the Execution Lineage Token (BatchID)
 CREATE TABLE Fact_Malaria(
 	   FactID BIGINT IDENTITY(1,1) PRIMARY KEY,
-	   BatchID UNIQUEIDENTIFIER NOT NULL, --- Token for tracking lineageS
+	   BatchID UNIQUEIDENTIFIER NOT NULL, --- Token for tracking data lineage
 	   DateKey INT NOT NULL,
 	   GenderKey INT NOT NULL,
 	   AgeKey INT NOT NULL,
