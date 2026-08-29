@@ -18,7 +18,7 @@ BEGIN
  DECLARE @DynamicSQL NVARCHAR(MAX) = '';
  DECLARE @cross_apply_values NVARCHAR(MAX) = '';
  
- -- 1. FIXED HEADER STRING AGGREGATION PATTERN
+ --HEADER STRING AGGREGATION PATTERN
  -- Maps raw python columns cleanly into unpivot value tuple matrices
  SELECT @cross_apply_values = STRING_AGG(
     '(''' + COLUMN_NAME + ''', ' + CAST(QUOTENAME(COLUMN_NAME) AS NVARCHAR(MAX)) + ')' , 
@@ -37,7 +37,6 @@ BEGIN
          LTRIM(RTRIM(organisationunitname)) AS District,
          ColName,
          TRY_CAST(Value AS INT) AS Value
-     -- Added critical separating space dot here
      FROM [MLanding1].dbo.' + QUOTENAME(@SourceTableName) + '
      -- Added separating keyword space here
      CROSS APPLY (
@@ -74,6 +73,7 @@ BEGIN
              WHEN UPPER(ColName) LIKE ''%5-9YRS%'' THEN ''5-9yrs''
              WHEN UPPER(ColName) LIKE ''%10-19YRS%'' THEN ''10-19yrs''
              WHEN UPPER(ColName) LIKE ''%20+YRS%'' THEN ''20+''
+             WHEN UPPER(ColName) LIKE ''%20-60YRS%'' THEN ''20-60Yrs'' 
          END AS AgeGroup,
          CASE 
              WHEN UPPER(ColName) LIKE ''%FEMALE%'' THEN ''Female''

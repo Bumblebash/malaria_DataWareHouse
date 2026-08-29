@@ -70,7 +70,7 @@ CROSS APPLY (
     VALUES 
         ('Population_2020', src.Population_2020),
         ('Population_2021', src.Population_2021),
-        ('Population_2022', src.Population_2022), -- If this is NULL, it will now appear in your results!
+        ('Population_2022', src.Population_2022), 
         ('Population_2023', src.Population_2023),
         ('Population_2024', src.Population_2024)
 ) AS unpiv(ColName, [Value]);

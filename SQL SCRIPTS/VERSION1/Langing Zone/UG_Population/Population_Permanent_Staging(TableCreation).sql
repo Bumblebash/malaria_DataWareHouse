@@ -10,7 +10,7 @@ CREATE TABLE Stg_Population_Permanent(
 --Fact/Measures
 	Population_2020 INT,
 	Population_2021 INT,
-	Popualation_2022 INT,
+	Population_2022 INT,
 	Population_2023 INT,
 	Population_2024 INT,
 
