@@ -20,7 +20,7 @@ DECLARE @cross_apply_values NVARCHAR(MAX);
 SELECT @cross_apply_values = STRING_AGG(
          '(''' + COLUMN_NAME + ''', ' + CAST(QUOTENAME(COLUMN_NAME) + ')' AS NVARCHAR(MAX)), ',') 
 		FROM INFORMATION_SCHEMA.COLUMNS
-		WHERE TABLE_NAME = 'Stg_Population_Permanent' AND 
+		WHERE TABLE_NAME = 'Stg_Population_Pivoted' AND 
 		(
 		 COLUMN_NAME LIKE '%2020%' 
 		 OR COLUMN_NAME LIKE '%2021%'
@@ -38,7 +38,7 @@ SET @sql = '
 					District,
 					ColName,
 					Value
-					FROM [MLanding1].dbo.Stg_Population_Permanent
+					FROM [MLanding1].dbo.Stg_Population_Pivoted
 					CROSS APPLY(
 					  VALUES ' + @cross_apply_values + '
 					) AS unpiv(ColName, [Value])
@@ -50,22 +50,20 @@ SET @sql = '
 		 Value AS Estimated_Population
 	FROM UNPIVOTED
 	)
-	INSERT INTO DimPopulation(GeographyKey, Region, DistrictName, Year, Estimated_Population)
+	INSERT INTO Stg_Population_Unpivoted(Region, District, Year, Estimated_Population)
 				SELECT 
-				d.GeographyKey,
-				p.Region,
-				p.District AS DistrictName,
-				p.Year,
-				p.Estimated_Population
-		FROM [MLanding1].dbo.DimGeography d
-		JOIN PARSED p ON d.DistrictName =   p.District
+				Region,
+				District,
+				Year,
+				Estimated_Population
+		FROM Parsed 
 '
 
 EXEC sp_executesql @sql;
 
+SELECT * FROM Stg_Population_Unpivoted
 
-
-SELECT * FROM DimPopulation;
+SELECT * FROM Fact_Population;
 
 SELECT 
     src.Region,

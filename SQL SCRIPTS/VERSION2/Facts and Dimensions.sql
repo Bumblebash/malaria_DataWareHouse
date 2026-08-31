@@ -67,20 +67,17 @@ CREATE TABLE Fact_Malaria(
 
 -----Fact Population
 CREATE TABLE Fact_Population(
-            FactID INT IDENTITY(1,1) PRIMARY KEY
-			PopulationKey INT NOT NULL,
+            FactID INT IDENTITY(1,1) PRIMARY KEY,
 			BatchID UNIQUEIDENTIFIER  NULL,
 			DateKey INT NOT NULL,
 			GeographyKey INT NOT NULL,
 			Estimated_Population INT  NULL,
 		CONSTRAINT FK_Popn_Date FOREIGN KEY(DateKey) REFERENCES DimDate(DateKey),
 		CONSTRAINT FK_Popn_Geography FOREIGN KEY(GeographyKey) REFERENCES DimGeography(GeographyKey) 
-		CONSTRAINT FK_Popn_Population FOREIGN KEY(PopulationKey) REFERENCES DimPopulation(PopulationKey)
 		);
 
 
 
- 
 
 
 

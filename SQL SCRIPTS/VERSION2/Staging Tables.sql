@@ -24,8 +24,8 @@ CREATE TABLE Stg_Malaria_Permanent(
 
 ---Staging Table Population
 
-CREATE TABLE Stg_Population_Permanent(
-		BatchID UNIQUEIDENTIFIER NOT NULL,
+CREATE TABLE Stg_Population_Pivoted(
+		BatchID UNIQUEIDENTIFIER NULL,
 		Region VARCHAR(100) NOT NULL,
 		District VARCHAR(100) NOT NULL,
 		Population_2020 INT NULL,
@@ -35,12 +35,25 @@ CREATE TABLE Stg_Population_Permanent(
 		Population_2024 INT NULL,
 		DataQualityFlag VARCHAR(100) NULL,
 		IngestionTimestamp DATETIME DEFAULT GETDATE(),
-		PRIMARY KEY (BatchID , Region, District)
+		PRIMARY KEY (Region, District)
 
 );
 
+---STAGING TABLE 2(POPULATION) Stg_Population_Unpivoted
 
-USE MLanding1;
+CREATE TABLE Stg_Population_Unpivoted(
+				BatchID UNIQUEIDENTIFIER NULL,
+				Region VARCHAR(100) NOT NULL,
+				District VARCHAR(100) NOT NULL,
+				Year INT,
+				Estimated_Population INT 
+);
+
+
+
+
+
+USE MLanding1
 
 SELECT * FROM DimDate;
 
