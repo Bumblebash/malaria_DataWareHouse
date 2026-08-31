@@ -1,11 +1,16 @@
 USE MLanding1;
-SELECT * FROM Stg_Population_Permanent
-GO
+
+
+
+
+/**Insertion of Data into The Second Staging Table(Stg_Malaria_Unpivoted**/
+
+DECLARE @cols NVARCHAR(MAX);
 DECLARE @cross_apply_values NVARCHAR(MAX);
 SELECT @cross_apply_values = STRING_AGG(
          '(''' + COLUMN_NAME + ''', ' + CAST(QUOTENAME(COLUMN_NAME) + ')' AS NVARCHAR(MAX)), ',') 
 		FROM INFORMATION_SCHEMA.COLUMNS
-		WHERE TABLE_NAME = 'Stg_Population_Permanent' AND 
+		WHERE TABLE_NAME = 'Stg_Population_Pivoted' AND 
 		(
 		 COLUMN_NAME LIKE '%2020%' 
 		 OR COLUMN_NAME LIKE '%2021%'
@@ -23,7 +28,7 @@ SET @sql = '
 					District,
 					ColName,
 					Value
-					FROM [MLanding1].dbo.Stg_Population_Permanent
+					FROM [MLanding1].dbo.Stg_Population_Pivoted
 					CROSS APPLY(
 					  VALUES ' + @cross_apply_values + '
 					) AS unpiv(ColName, [Value])
@@ -35,19 +40,34 @@ SET @sql = '
 		 Value AS Estimated_Population
 	FROM UNPIVOTED
 	)
-	INSERT INTO DimPopulation(GeographyKey, Region, DistrictName, Year, Estimated_Population)
+	INSERT INTO Stg_Population_Unpivoted(Region, District, Year, Estimated_Population)
 				SELECT 
-				d.GeographyKey,
-				p.Region,
-				p.District AS DistrictName,
-				p.Year,
-				p.Estimated_Population
-		FROM [MLanding1].dbo.DimGeography d
-		JOIN PARSED p ON d.DistrictName =   p.District
+				Region,
+				District,
+				Year,
+				Estimated_Population
+		FROM Parsed 
 '
 
 EXEC sp_executesql @sql;
 
 
 
-SELECT * FROM DimPopulation;
+
+
+
+---Custom Unpivot Script t
+SELECT 
+    src.Region,
+    src.District,
+    unpiv.ColName,
+    unpiv.[Value]
+FROM [MLanding1].dbo.Stg_Population_Pivoted AS src
+CROSS APPLY (
+    VALUES 
+        ('Population_2020', src.Population_2020),
+        ('Population_2021', src.Population_2021),
+        ('Population_2022', src.Population_2022), 
+        ('Population_2023', src.Population_2023),
+        ('Population_2024', src.Population_2024)
+) AS unpiv(ColName, [Value]);
