@@ -22,3 +22,5 @@ Development of a data Warehouse for Malaria Records in Uganda Between 2020 to 20
   3. Gold(Analytical Layer): Finally ingested the data from the permanent staging table into an organised dimensional Star schema with historical tracking(SCD-2), using a virtual presenation Layer(rpt).
  
      
+ 
+     
