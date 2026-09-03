@@ -15,7 +15,7 @@ Development of a data Warehouse for Malaria Records in Uganda Between 2020 to 20
 10. Academic Reference & Citation
 
 
-## Architecture Background
+## 1. Architecture Background
 - Unlike legacy infrastructures that rely heavily  on mapping blocks(e.g , SSIS) which might crash when headers change  or exceed character limits, this system utilizes a code-first pipeline:
   1. Bronze(Raw Landing Layer): Using Python to ingest wide matrix-column csv files into SQL server database(Landing Zone)(Extract-Load)
   2. Silver(Staging Layer): Horizontally unpivoted  the raw data using  dynamic SQL (CROSS APPLY VALUES) , Transfomed and inserted into the Permanent Staging Table.(Load - Transform)
