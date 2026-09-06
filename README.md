@@ -7,7 +7,7 @@ Development of a data Warehouse for Malaria Records in Uganda Between 2020 to 20
 2. Repository File Structure
 3. The wide-Matrix Pipeline Breakdown
 4. Database Schema Blueprint (Gold Layer)
-5. Data Quality & Auditing Farmework(dbt)
+5. Data Quality & Auditing Framework(dbt)
 6. Native Automation & Orchestration(SQL server Agent)
 7. Analytical Perfomance & Benchmarks
 8. Downstream Applications (PowerBI, ArcGIS & Data Science)
