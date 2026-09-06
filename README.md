@@ -10,7 +10,7 @@ Development of a data Warehouse for Malaria Records in Uganda Between 2020 to 20
 5. Data Quality & Auditing Farmework(dbt)
 6. Native Automation & Orchestration(SQL server Agent)
 7. Analytical Perfomance & Benchmarks
-8. Downstream Applications (ArcGIS & Data Science)
+8. Downstream Applications (PowerBI, ArcGIS & Data Science)
 9. Getting Started & Installation
 10. Academic Reference & Citation
 
